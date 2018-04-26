@@ -6,102 +6,306 @@
     <!-- Load P5.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.6.0/p5.js"></script>
 
-    <script>
-      // Setup canvas for drawing
-      function setup() {
-        createCanvas(500, 500);
-        background(0);
-        //translate(250, 250);
-        stroke(255);
-        strokeWeight(5);
-        noLoop();
+    <!-- Load jQuery -->
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+      integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+      crossorigin="anonymous"></script>
 
-        
-
-        drawGraph();
-      }
-
-      // Current best estimate is random
-      const a = tf.variable(tf.scalar(Math.random()));
-      const b = tf.variable(tf.scalar(Math.random()));
-      const c = tf.variable(tf.scalar(Math.random()));
-      const d = tf.variable(tf.scalar(Math.random()));
-
-      // Building a model
-      function predict(x) {
-        return tf.tidy(() => {
-            return a.mul(x.pow(tf.scalar(3))) // a * x^3
-              .add(b.mul(x.square())) // + b * x ^ 2
-              .add(c.mul(x)) // + c * x
-              .add(d); // + d
-          });
-      }
-
-      function getGraphPoints(startX, endX, increment) {
-        let points = [];
-        for(let x = startX; x < endX; x += increment) {
-          let y = predict(tf.variable(tf.scalar(x))).get();
-          points.push({x:x,y:y});
+      <style>
+        .val{
+          font-weight: bold;
+          color: blue;
         }
-        return points;
-      }
 
-      function drawGraph() {
-        let points = getGraphPoints(-1.0, 1.0, 0.2);
-
-        background(0);
-        // X axis spans from -1 to 1 across 10 points
-        drawGraphGrid();
-        
-        for(let i = 1; i < points.length; i++) {
-          let from = pointToPos(points[i-1]);
-          let to = pointToPos(points[i]);
-
-          stroke(255,0,0);
-          strokeWeight(5);
-          line(from.x,from.y,to.x,to.y);
+        .valC{
+          font-weight: bold;
+          color: green;
         }
-      }
 
-      function pointToPos(point) {
-        let canvasWidth = 500;
-        let canvasHeight = 500;
-
-        // x = -1 => 1
-        let x = ((point.x + 1) / 2) * canvasWidth;
-
-        // y = 0 => 2
-        let y = 500 - ((point.y / 2) * canvasHeight);
-
-        return {x:x, y:y};
-      }
-
-      function drawGraphGrid() {
-        strokeWeight(1);
-        stroke(100);
-        for(let i = 0; i < 500; i += 50) {
-          line(i,0,i,500);
-          line(0,i,500,i);
+        #errTag{
+          color: red;
         }
-        fill(255);
-        text('-1', 5, 495);
-        text('1', 488, 495);
-      }
 
-      function drawLine(x1,y1,x2,y2) {
-        strokeWeight(1);
-        line(-250,-y2,x2,-y2);
-        line(x2,250,x2,-y2);
-        //fill(255);
-        //text(x2 + ' ' + y2, x2 + 0.5, -y2 - 25);
-        //fill(0);
-        strokeWeight(5);
-        line(x1,-y1,x2,-y2);
-      }
+        .bar {
+          background-color: black;
+          height: 10px;
+          width: 60px;
+          display: inline-block;
+        }
 
-    </script>
+        .point {
+          background-color: black;
+          height: 10px;
+          width: 10px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .red {
+          background-color: rgb(244,67,54);
+        }
+
+        .green {
+          background-color: rgb(56,142,60);
+        }
+
+        .blue {
+          background-color: rgb(33,150,243);
+        }
+      </style>
   </head>
 
   <body>
+    <p>GENERATION: <span id="generation-tag">0</span></p>
+    <p>Approximated function: y = <span class="val" id="valA">RANDOM</span> * x ^ 3 + <span class="val" id="valB">RANDOM</span> * x ^ 2 + <span class="val" id="valC">RANDOM</span> * x + <span class="val" id="valD">RANDOM</span></p>
+    <p>Correct function: y = <span class="valC">-0.8</span> * x ^ 3 + <span class="valC">-0.2</span> * x ^ 2 + <span class="valC">0.9</span> * x + <span class="valC">0.5</span></p>
+    <p>Function Error: <span id="errTag">?</span></p>
+    <p><div class="bar red"></div> Machine Learning Guess</p>
+    <p><div class="bar green"></div> Correct Function</p>
+    <p><div class="point blue"></div> Datapoint</p>
+    <button onclick="learnCoefficients();">ADD DATAPOINT (And skip 100 generations)</button><br><br>
+    
+    <script>
+        let $generationTag = $("#generation-tag");
+        let $valA = $("#valA");
+        let $valB = $("#valB");
+        let $valC = $("#valC");
+        let $valD = $("#valD");
+        let $err = $("#errTag");
+  
+        // Setup canvas for drawing
+        function setup() {
+          createCanvas(500, 500);
+          background(0);
+          //translate(250, 250);
+          stroke(255);
+          strokeWeight(5);
+          noLoop();
+  
+          
+  
+          drawGraph();
+        }
+  
+        // Current best estimate is random
+        const a = tf.variable(tf.scalar(Math.random()));
+        const b = tf.variable(tf.scalar(Math.random()));
+        const c = tf.variable(tf.scalar(Math.random()));
+        const d = tf.variable(tf.scalar(Math.random()));
+  
+        // Building a model
+        function predict(x) {
+          return tf.tidy(() => {
+              return a.mul(x.pow(tf.scalar(3))) // a * x^3
+                .add(b.mul(x.square())) // + b * x ^ 2
+                .add(c.mul(x)) // + c * x
+                .add(d); // + d
+            });
+        }
+  
+        // Loss function
+        function loss(predictions, labels) {
+          // Subtract our labels (actual values) from predictions, square the results,
+          // and take the mean.
+          const meanSquareError = predictions.sub(labels).square().mean();
+          return meanSquareError;
+        }
+  
+        // SGD Optimizer
+        const learningRate = 0.5;
+        const optimizer = tf.train.sgd(learningRate);
+  
+  
+        // Training loop
+        let generation = 0;
+  
+        function train(xs, ys, numIterations = 100) {
+          const learningRate = 0.5;
+          const optimizer = tf.train.sgd(learningRate);
+  
+          for (let iter = 0; iter < numIterations; iter++) {
+            optimizer.minimize(() => {
+              const predsYs = predict(xs);
+              return loss(predsYs, ys);
+            });
+            generation++;
+            printStatus();
+          }
+  
+          drawGraph();
+        }
+
+        function printStatus() {
+          $generationTag.text(generation);
+          $valA.text(a.get());
+          $valB.text(b.get());
+          $valC.text(c.get());
+          $valD.text(d.get());
+          $err.text(getErr());
+        }
+
+        function getErr() {
+          const r = {a: -.8, b: -.2, c: .9, d: .5};
+          let err = 0;
+          err += Math.abs(r.a - a.get());
+          err += Math.abs(r.b - b.get());
+          err += Math.abs(r.c - c.get());
+          err += Math.abs(r.d - d.get());
+          return err;
+        }
+  
+        // Dataset creation
+        let dataset = [];
+
+        function drawDataset() {
+          for(let d of dataset) {
+            drawDataPoint(d);
+          }
+        }
+
+        function addData(x, y) {
+          drawDataPoint({x:x, y:y});
+          dataset.push({
+            x: tf.variable(tf.scalar(x)),
+            y: tf.variable(tf.scalar(y))
+          });
+        }
+  
+        function drawDataPoint(point) {
+          let p = pointToPos({x:point.x, y:point.y});
+          let width = 10;
+          let height = 10;
+          fill(33,150,243);
+          strokeWeight(0);
+          ellipse(p.x, p.y, width, height);
+        }
+  
+        function trainWith(index) {
+          train(dataset[index].x, dataset[index].y);
+        }
+  
+        function addDummyDataset() {
+          addData(-1,1);
+          addData(1,1);
+          addData(0.5,1.5);
+        }
+  
+        function getGraphPoints(startX, endX, increment) {
+          let points = [];
+          for(let x = startX; x < endX; x += increment) {
+            let y = predict(tf.variable(tf.scalar(x))).get();
+            points.push({x:x,y:y});
+          }
+          return points;
+        }
+  
+        function getTrueGraphPoints(startX, endX, increment) {
+          let points = [];
+          for(let x = startX; x < endX; x += increment) {
+            const r = {a: -.8, b: -.2, c: .9, d: .5};
+            let y = (r.a * Math.pow(x,3)) + (r.b * Math.pow(x, 2)) + (r.c * x) + r.d;
+            points.push({x:x,y:y});
+          }
+          return points;
+        }
+  
+        function drawGraph() {
+          let points = getGraphPoints(-1.0, 1.0, 0.01);
+  
+          background(0);
+          // X axis spans from -1 to 1 across 10 points
+          drawGraphGrid();
+          
+          drawPoints(points, color(244,67,54));
+
+          drawDataset();
+        }
+  
+        function drawPoints(points, color = 255) {
+          for(let i = 1; i < points.length; i++) {
+            let from = pointToPos(points[i-1]);
+            let to = pointToPos(points[i]);
+  
+            stroke(color);
+            strokeWeight(5);
+            line(from.x,from.y,to.x,to.y);
+          }
+        }
+  
+        function pointToPos(point) {
+          let canvasWidth = 500;
+          let canvasHeight = 500;
+  
+          // x = -1 => 1
+          let x = ((point.x + 1) / 2) * canvasWidth;
+  
+          // y = 0 => 2
+          let y = 500 - ((point.y / 2) * canvasHeight);
+  
+          return {x:x, y:y};
+        }
+  
+        function drawGraphGrid() {
+          strokeWeight(1);
+          stroke(100);
+          for(let i = 0; i < 500; i += 50) {
+            line(i,0,i,500);
+            line(0,i,500,i);
+          }
+          fill(255);
+          text('-1', 5, 495);
+          text('1', 488, 495);
+  
+          let realPoints = getTrueGraphPoints(-1.0, 1.0, 0.01);
+          drawPoints(realPoints, color(56,142,60));
+        }
+  
+  
+  
+        // LEARNING
+        function generateData(numPoints, coeff, sigma = 0.04) {
+          return tf.tidy(() => {
+            const [a, b, c, d] = [
+              tf.scalar(coeff.a), tf.scalar(coeff.b), tf.scalar(coeff.c),
+              tf.scalar(coeff.d)
+            ];
+  
+            const xs = tf.randomUniform([numPoints], -1, 1);
+  
+            // Generate polynomial data
+            const three = tf.scalar(3, 'int32');
+            const ys = a.mul(xs.pow(three))
+              .add(b.mul(xs.square()))
+              .add(c.mul(xs))
+              .add(d)
+              // Add random noise to the generated data
+              // to make the problem a bit more interesting
+              .add(tf.randomNormal([numPoints], 0, sigma));
+  
+            // Normalize the y values to the range 0 to 1.
+            const ymin = ys.min();
+            const ymax = ys.max();
+            const yrange = ymax.sub(ymin);
+            const ysNormalized = ys.sub(ymin).div(yrange);
+  
+            return {
+              xs, 
+              ys: ysNormalized
+            };
+          })
+        }
+  
+  
+        function learnCoefficients() {
+          const trueCoefficients = {a: -.8, b: -.2, c: .9, d: .5};
+          const trainingData = generateData(100, trueCoefficients);
+          let trainX = trainingData.xs.get();
+          let trainY = trainingData.ys.get();
+          dataset.push({x:trainX,y:trainY});
+          train(trainingData.xs, trainingData.ys);
+        }
+  
+      </script>
   </body>
 </html>
