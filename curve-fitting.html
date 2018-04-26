@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.10.0"> </script>
+
+    <!-- Load P5.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.6.0/p5.js"></script>
+
+    <script>
+      // Setup canvas for drawing
+      function setup() {
+        createCanvas(500, 500);
+        background(0);
+        //translate(250, 250);
+        stroke(255);
+        strokeWeight(5);
+        noLoop();
+
+        
+
+        drawGraph();
+      }
+
+      // Current best estimate is random
+      const a = tf.variable(tf.scalar(Math.random()));
+      const b = tf.variable(tf.scalar(Math.random()));
+      const c = tf.variable(tf.scalar(Math.random()));
+      const d = tf.variable(tf.scalar(Math.random()));
+
+      // Building a model
+      function predict(x) {
+        return tf.tidy(() => {
+            return a.mul(x.pow(tf.scalar(3))) // a * x^3
+              .add(b.mul(x.square())) // + b * x ^ 2
+              .add(c.mul(x)) // + c * x
+              .add(d); // + d
+          });
+      }
+
+      function getGraphPoints(startX, endX, increment) {
+        let points = [];
+        for(let x = startX; x < endX; x += increment) {
+          let y = predict(tf.variable(tf.scalar(x))).get();
+          points.push({x:x,y:y});
+        }
+        return points;
+      }
+
+      function drawGraph() {
+        let points = getGraphPoints(-1.0, 1.0, 0.2);
+
+        background(0);
+        // X axis spans from -1 to 1 across 10 points
+        drawGraphGrid();
+        
+        for(let i = 1; i < points.length; i++) {
+          let from = pointToPos(points[i-1]);
+          let to = pointToPos(points[i]);
+
+          stroke(255,0,0);
+          strokeWeight(5);
+          line(from.x,from.y,to.x,to.y);
+        }
+      }
+
+      function pointToPos(point) {
+        let canvasWidth = 500;
+        let canvasHeight = 500;
+
+        // x = -1 => 1
+        let x = ((point.x + 1) / 2) * canvasWidth;
+
+        // y = 0 => 2
+        let y = 500 - ((point.y / 2) * canvasHeight);
+
+        return {x:x, y:y};
+      }
+
+      function drawGraphGrid() {
+        strokeWeight(1);
+        stroke(100);
+        for(let i = 0; i < 500; i += 50) {
+          line(i,0,i,500);
+          line(0,i,500,i);
+        }
+        fill(255);
+        text('-1', 5, 495);
+        text('1', 488, 495);
+      }
+
+      function drawLine(x1,y1,x2,y2) {
+        strokeWeight(1);
+        line(-250,-y2,x2,-y2);
+        line(x2,250,x2,-y2);
+        //fill(255);
+        //text(x2 + ' ' + y2, x2 + 0.5, -y2 - 25);
+        //fill(0);
+        strokeWeight(5);
+        line(x1,-y1,x2,-y2);
+      }
+
+    </script>
+  </head>
+
+  <body>
+  </body>
+</html>
